@@ -1,0 +1,12 @@
+.* export-ignore
+#
+* text=auto
+#
+*.bash text eol=lf
+#
+*.md text
+*.pem text
+#
+*.jks binary
+*.p12 binary
+

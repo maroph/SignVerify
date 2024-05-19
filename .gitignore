@@ -1,0 +1,5 @@
+keydata/createData.bash
+keydata/*.jks
+keydata/*.pem
+keydata/*.p12
+dontpanic.txt
