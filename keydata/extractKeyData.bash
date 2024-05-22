@@ -9,7 +9,7 @@
 ##############################################
 #
 declare -r SCRIPT_NAME=`basename $0`
-declare -r VERSION="${SCRIPT_NAME}  1  (19-MAY-2024)"
+declare -r VERSION="${SCRIPT_NAME}  1  (22-MAY-2024)"
 #
 ###############################################################################
 #
@@ -69,6 +69,7 @@ print_usage() {
 
 Usage: ${SCRIPT_NAME} [<options>] <PKCS12 keystore> <passphrase>
        Extract key data from a PKCS12 keystore
+       Required: OpenSSL >= 3.0
 
     Options:
     -h|--help    : show this help text and exit
@@ -90,8 +91,10 @@ Usage: ${SCRIPT_NAME} [<options>] <PKCS12 keystore> <passphrase>
 
     - private_nopassphrase.pem : unencrypted private key
                                  (option -n|--no-passphrase)
-    - *.jks             : JKS keystore
-    - *_none_legacy.p12 : 
+    - *.jks             : create a JKS keystore from the given PKCS12 keystore if
+                          the Java JDK keytool program is available
+    - *_none_legacy.p12 : with option --legacy only:
+                          create a new PKCS12 keystore from the given legacy keystore
 
 EOT
 }
@@ -295,7 +298,7 @@ then
     chmod 600 ${keystoreJKS} || exit 1
 else
     echo "${SCRIPT_NAME}: can't create JKS keystore ${keystoreJKS}"
-    echo "${SCRIPT_NAME}: (Java SDK keytool program noz found in PATH)"
+    echo "${SCRIPT_NAME}: (Java JDK keytool program not found in PATH)"
 fi
 #
 ###############################################################################
