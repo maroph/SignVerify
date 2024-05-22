@@ -7,6 +7,8 @@
 *.md text
 *.pem text
 #
+*.der binary
 *.jks binary
 *.p12 binary
-
+*.p7m binary
+*.p7s binary
