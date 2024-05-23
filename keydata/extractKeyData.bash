@@ -9,7 +9,7 @@
 ##############################################
 #
 declare -r SCRIPT_NAME=`basename $0`
-declare -r VERSION="${SCRIPT_NAME}  1  (22-MAY-2024)"
+declare -r VERSION="${SCRIPT_NAME}  1  (23-MAY-2024)"
 #
 ###############################################################################
 #
@@ -58,6 +58,7 @@ keystoreJKS=""
 keystoreP12_NL=""
 #
 force=0
+jks=0
 legacy=0
 nopassphrase=0
 prefix=""
@@ -75,6 +76,8 @@ Usage: ${SCRIPT_NAME} [<options>] <PKCS12 keystore> <passphrase>
     -h|--help    : show this help text and exit
     -V|--version : show version information and exit
     -f|--force   : overwrite existing PEM files
+    -j|--jks     : convert the PKCS12 keystore data into a JKS keystore
+                   (needs the Java JDK keytool program)
     -n|--no-passphrase : create unencrypted private key file
     -p|--prefix  : prefix for key/cert files (default: no prefix)
     --legacy     : PKCS12 keystore was created with OpenSSL 1.1.1
@@ -90,11 +93,12 @@ Usage: ${SCRIPT_NAME} [<options>] <PKCS12 keystore> <passphrase>
     - public.pem  : public key
 
     - private_nopassphrase.pem : unencrypted private key
-                                 (option -n|--no-passphrase)
-    - *.jks             : create a JKS keystore from the given PKCS12 keystore if
-                          the Java JDK keytool program is available
+                                 (created with option -n|--no-passphrase only)
+    - *.jks             : PKCS12 keystore file data in JKS keystore format
+                          (created with option -j|--jks only)
     - *_none_legacy.p12 : with option --legacy only:
                           create a new PKCS12 keystore from the given legacy keystore
+                          (created with option --legacy only)
 
 EOT
 }
@@ -115,6 +119,9 @@ do
             ;;
         -f | --force)
             force=1
+            ;;
+        -j | --jks)
+            jks=1
             ;;
         -n | --no-passphrase)
             nopassphrase=1
@@ -268,37 +275,42 @@ fi
 ###############################################################################
 #
 echo "${SCRIPT_NAME}: check private key part of file ${prefix}private.pem"
-openssl pkey -check -noout -in ${prefix}private.pem -passin pass:${passphrase} || exit 1
+${OPENSSL} pkey -check -noout -in ${prefix}private.pem -passin pass:${passphrase} || exit 1
 #
 echo "${SCRIPT_NAME}: check public key part of file ${prefix}private.pem"
-openssl pkey -pubcheck -noout -in ${prefix}private.pem -passin pass:${passphrase} || exit 1
+${OPENSSL} pkey -pubcheck -noout -in ${prefix}private.pem -passin pass:${passphrase} || exit 1
 #
 ###############################################################################
 #
 echo "${SCRIPT_NAME}: extract public key to file ${prefix}public.pem"
-${OPENSSL} pkey -in ${prefix}private.pem -passin pass:${passphrase} -pubout -out ${prefix}public.pem
+${OPENSSL} pkey -in ${prefix}private.pem -passin pass:${passphrase} -pubout -out ${prefix}public.pem || exit 1
 chmod 644 ${prefix}public.pem || exit 1
 #
 ###############################################################################
 ###############################################################################
 #
-type -p keytool >/dev/null 2>/dev/null
-if [ $? -eq 0 ]
+exitcode=0
+if [ ${jks} -eq 1 ]
 then
-    rm -f ${keystoreJKS}
-    echo "${SCRIPT_NAME}: create JKS keystore ${keystoreJKS}"
-    keytool -importkeystore \
-            -v \
-            -srckeystore ${keystoreP12} \
-            -destkeystore ${keystoreJKS} \
-            -srcstoretype pkcs12 \
-            -deststoretype jks \
-            -srcstorepass ${passphrase} \
-            -deststorepass ${passphrase}
-    chmod 600 ${keystoreJKS} || exit 1
-else
-    echo "${SCRIPT_NAME}: can't create JKS keystore ${keystoreJKS}"
-    echo "${SCRIPT_NAME}: (Java JDK keytool program not found in PATH)"
+    type -p keytool >/dev/null 2>/dev/null
+    if [ $? -eq 0 ]
+    then
+        rm -f ${keystoreJKS}
+        echo "${SCRIPT_NAME}: create JKS keystore ${keystoreJKS}"
+        keytool -importkeystore \
+                -v \
+                -srckeystore ${keystoreP12} \
+                -destkeystore ${keystoreJKS} \
+                -srcstoretype pkcs12 \
+                -deststoretype jks \
+                -srcstorepass ${passphrase} \
+                -deststorepass ${passphrase} || exit 1
+        chmod 600 ${keystoreJKS} || exit 1
+    else
+        echo "${SCRIPT_NAME}: can't create JKS keystore ${keystoreJKS}"
+        echo "${SCRIPT_NAME}: (Java JDK keytool program not found in PATH)"
+        exitcode=1
+    fi
 fi
 #
 ###############################################################################
@@ -307,17 +319,17 @@ if [ ${legacy} -eq 1 ]
 then
     rm -f ${keystoreP12_NL}
     echo "${SCRIPT_NAME}: create a none legacy version of the PKCS12 store"
-    openssl pkcs12 -export \
+    ${OPENSSL} pkcs12 -export \
         -in cert.pem \
         -inkey private.pem \
         -certfile chain.pem \
         -name 1  \
         -passin pass:${passphrase} \
         -passout pass:${passphrase} \
-        -out ${keystoreP12_NL}
+        -out ${keystoreP12_NL} || exit 1
 fi
 #
 ###############################################################################
 #
-exit 0
+exit ${exitcode}
 

@@ -1,5 +1,5 @@
 .idea/
-keydata/createData.bash
+keydata/test
 keydata/*.jks
 keydata/*.pem
 keydata/*.p12
